@@ -48,5 +48,5 @@ local.properties
 
 **/tmp/*
 
-### If you run the script to start MySql with dockre it will generate a mysql/ directory. This will make git ignore it
+### If you run the script to start MySql with docker it will generate a mysql/ directory. This will make git ignore it
 mysql/
