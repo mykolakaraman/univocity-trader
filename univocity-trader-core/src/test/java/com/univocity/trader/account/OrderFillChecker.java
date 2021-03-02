@@ -34,7 +34,7 @@ public class OrderFillChecker {
 				.tradeWithPair("ADA", "BNB")
 				.tradeWith("ADA", "BNB")
 				.enableShorting()
-				.strategies().add(() -> candle -> Signal.NEUTRAL);
+				.strategies().add(() -> (candle, context) -> Signal.NEUTRAL);
 
 		if (orderManager != null) {
 			accountCfg.orderManager(orderManager);
@@ -42,7 +42,7 @@ public class OrderFillChecker {
 
 		configure(configuration);
 
-		SimulatedClientAccount clientAccount = new SimulatedClientAccount(accountCfg, configuration.simulation());
+		SimulatedClientAccount clientAccount = new SimulatedClientAccount(accountCfg, configuration.simulation(), () -> null);
 		SimulatedAccountManager account = clientAccount.getAccount();
 		SimulatedExchange exchange = new SimulatedExchange(account);
 		account.getAllSymbolPairs().keySet().forEach(s -> account.createTradingManager(s, exchange, null, Parameters.NULL));

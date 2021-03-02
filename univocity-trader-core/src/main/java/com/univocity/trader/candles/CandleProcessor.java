@@ -37,8 +37,8 @@ public final class CandleProcessor<T> {
 				}
 
 				Candle candle;
-				if (processFullCandlesOnly && !initializing) {
-					PreciseCandle fullCandle = candleRepository.lastFullCandle(consumer.getSymbol());
+				if (processFullCandlesOnly && !initializing && candleRepository.isWritingSupported()) {
+					PreciseCandle fullCandle = ((DatabaseCandleRepository)candleRepository).lastFullCandle(consumer.getSymbol());
 					if (fullCandle == null) {
 						return;
 					} else {

@@ -51,7 +51,7 @@ public interface Exchange<T, C extends AccountConfiguration<C>> {
 	 * limits the number of candles returned at once, that limit should be respected, and the interval given by
 	 * {@code startTime} or {@code endTime} can be shortened internally.
 	 *
-	 * Method {@link CandleRepository#fillHistoryGaps(Exchange, String, Instant, TimeInterval)} will cycle through the gaps in history and fill them accordingly
+	 * Method {@link DatabaseCandleRepository#fillHistoryGaps(Exchange, String, Instant, TimeInterval)} will cycle through the gaps in history and fill them accordingly
 	 * by requesting more candles from the exchange as needed.
 	 *
 	 * @param symbol    the symbol whose latest price information should be returned from the exchange (e.g. BTCUSDT, MSFT, etc)
@@ -235,4 +235,8 @@ public interface Exchange<T, C extends AccountConfiguration<C>> {
 	}
 
 //	boolean isDirectSwitchSupported(String currentAssetSymbol, String targetAssetSymbol);
+
+	default String getName(){
+		return getClass().getSimpleName();
+	}
 }

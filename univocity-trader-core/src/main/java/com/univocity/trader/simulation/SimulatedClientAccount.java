@@ -9,6 +9,7 @@ import com.univocity.trader.simulation.orderfill.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
+import java.util.function.*;
 
 import static com.univocity.trader.config.Allocation.*;
 
@@ -20,13 +21,13 @@ public class SimulatedClientAccount implements ClientAccount {
 	private final OrderFillEmulator orderFillEmulator;
 	private final int marginReservePercentage;
 
-	public SimulatedClientAccount(AccountConfiguration<?> accountCfg, Simulation simulationCfg) {
-		this(accountCfg, simulationCfg.orderFillEmulator(), simulationCfg.tradingFees());
+	public SimulatedClientAccount(AccountConfiguration<?> accountCfg, Simulation simulationCfg, Supplier<SignalRepository> signalRepository) {
+		this(accountCfg, simulationCfg.orderFillEmulator(), simulationCfg.tradingFees(), signalRepository);
 	}
 
-	public SimulatedClientAccount(AccountConfiguration<?> accountConfiguration, OrderFillEmulator orderFillEmulator, TradingFees tradingFees) {
+	public SimulatedClientAccount(AccountConfiguration<?> accountConfiguration, OrderFillEmulator orderFillEmulator, TradingFees tradingFees, Supplier<SignalRepository> signalRepository) {
 		this.marginReservePercentage = accountConfiguration.marginReservePercentage();
-		this.accountManager = new SimulatedAccountManager(this, accountConfiguration, tradingFees);
+		this.accountManager = new SimulatedAccountManager(this, accountConfiguration, tradingFees, signalRepository);
 		this.orderFillEmulator = orderFillEmulator;
 	}
 
@@ -82,7 +83,7 @@ public class SimulatedClientAccount implements ClientAccount {
 		Order order = null;
 
 		if (orderDetails.isBuy() && hasFundsAvailable) {
-			if (orderDetails.isLong()) {
+			if (orderDetails.isLong() && !orderDetails.isMarket()) {
 				accountManager.lockAmount(fundsSymbol, orderAmount + fees);
 			}
 			order = createOrder(orderDetails, quantity, unitPrice);
@@ -340,24 +341,37 @@ public class SimulatedClientAccount implements ClientAccount {
 		try {
 			if (order.isBuy()) {
 				if (order.isLong()) {
+					if (order.isFinalized()) {
+						if (!order.isMarket()) {
+							final double lockedFunds = order.getTotalOrderAmount();
+							double unspentAmount = lockedFunds - order.getTotalTraded();
+
+							if (unspentAmount != 0) {
+								accountManager.addToFreeBalance(funds, unspentAmount);
+							}
+
+							accountManager.subtractFromLockedBalance(funds, lockedFunds);
+
+							double maxFees = getTradingFees().feesOnTotalOrderAmount(order);
+							accountManager.subtractFromLockedBalance(funds, maxFees);
+							accountManager.addToFreeBalance(funds, maxFees - order.getFeesPaid());
+						} else {
+							double totalCost = order.getTotalOrderAmount() + order.getFeesPaid();
+							if (accountManager.getBalance(order.getFundsSymbol()).getFree() > totalCost) {
+								accountManager.subtractFromFreeBalance(funds, totalCost);
+							} else {
+								order.setStatus(Order.Status.CANCELLED);
+								order.setPartialFillDetails(0, 0);
+								order.setExecutedQuantity(0);
+								order.setFeesPaid(0);
+								order.setAveragePrice(0);
+							}
+						}
+					}
 					if (order.getAttachments() != null) { //to be used by attached orders
 						accountManager.addToLockedBalance(asset, order.getPartialFillQuantity());
 					} else {
 						accountManager.addToFreeBalance(asset, order.getPartialFillQuantity());
-					}
-					if (order.isFinalized()) {
-						final double lockedFunds = order.getTotalOrderAmount();
-						double unspentAmount = lockedFunds - order.getTotalTraded();
-
-						if (unspentAmount != 0) {
-							accountManager.addToFreeBalance(funds, unspentAmount);
-						}
-
-						accountManager.subtractFromLockedBalance(funds, lockedFunds);
-
-						double maxFees = getTradingFees().feesOnTotalOrderAmount(order);
-						accountManager.subtractFromLockedBalance(funds, maxFees);
-						accountManager.addToFreeBalance(funds, maxFees - order.getFeesPaid());
 					}
 				} else if (order.isShort()) {
 					if (order.hasPartialFillDetails()) {

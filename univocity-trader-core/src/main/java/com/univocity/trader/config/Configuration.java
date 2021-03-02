@@ -1,7 +1,10 @@
 package com.univocity.trader.config;
 
 import com.univocity.trader.indicators.base.*;
+import com.univocity.trader.utils.*;
 
+import java.io.*;
+import java.nio.file.*;
 import java.time.*;
 import java.util.*;
 
@@ -13,6 +16,7 @@ public abstract class Configuration<C extends Configuration<C, T>, T extends Acc
 	private final ConfigurationManager<C> manager;
 
 	private final DatabaseConfiguration databaseConfiguration = new DatabaseConfiguration();
+	private final FileRepositoryConfiguration fileRepositoryConfiguration = new FileRepositoryConfiguration();
 	private final EmailConfiguration emailConfiguration = new EmailConfiguration();
 	private final Simulation simulation = new Simulation();
 	final AccountList<T> accountList = new AccountList<T>(this::newAccountConfiguration);
@@ -20,8 +24,8 @@ public abstract class Configuration<C extends Configuration<C, T>, T extends Acc
 	private boolean updateHistoryBeforeLiveTrading = true;
 	private boolean pollCandles = true;
 	private Period warmUpPeriod;
-
-
+	private final RepositoryDir signalRepositoryDir = new RepositoryDir();
+	private boolean isTestNet;
 
 	protected Configuration() {
 		this("univocity-trader.properties");
@@ -36,7 +40,7 @@ public abstract class Configuration<C extends Configuration<C, T>, T extends Acc
 	}
 
 	protected Configuration(String defaultConfigurationFile) {
-		manager = new ConfigurationManager<C>((C) this, defaultConfigurationFile);
+		manager = new ConfigurationManager<>((C) this, defaultConfigurationFile);
 	}
 
 	public C configure() {
@@ -70,6 +74,10 @@ public abstract class Configuration<C extends Configuration<C, T>, T extends Acc
 
 	public DatabaseConfiguration database() {
 		return databaseConfiguration;
+	}
+
+	public FileRepositoryConfiguration fileRepository() {
+		return fileRepositoryConfiguration;
 	}
 
 	public EmailConfiguration mailSender() {
@@ -139,5 +147,27 @@ public abstract class Configuration<C extends Configuration<C, T>, T extends Acc
 	public C warmUpPeriod(Period warmUpPeriod) {
 		this.warmUpPeriod = warmUpPeriod;
 		return (C) this;
+	}
+
+	public RepositoryDir signalRepositoryDir() {
+		return signalRepositoryDir;
+	}
+
+	public C signalRepositoryDir(File signalRepositoryDir) {
+		this.signalRepositoryDir.set(signalRepositoryDir);
+		return (C) this;
+	}
+
+	public C signalRepositoryDir(Path signalRepositoryDir) {
+		this.signalRepositoryDir.set(signalRepositoryDir);
+		return (C) this;
+	}
+
+	public boolean isTestNet() {
+		return isTestNet;
+	}
+
+	public void setTestNet(boolean testNet) {
+		isTestNet = testNet;
 	}
 }

@@ -38,7 +38,12 @@ public abstract class MarketSimulator<C extends Configuration<C, A>, A extends A
 	}
 
 	protected CandleRepository createCandleRepository() {
-		return new CandleRepository(configure().database());
+		FileRepositoryConfiguration fileRepository = configure().fileRepository();
+		if (fileRepository.isConfigured()) {
+			return new FileCandleRepository(fileRepository.dir(), fileRepository.rowFormat());
+		} else {
+			return new DatabaseCandleRepository(configure().database());
+		}
 	}
 
 	@Override
@@ -56,9 +61,12 @@ public abstract class MarketSimulator<C extends Configuration<C, A>, A extends A
 	protected void executeWithParameters(Stream<Parameters> parameters) {
 		parameters.forEach(p -> {
 			initialize();
-			executeSimulation(createEngines(p));
-//			liquidateOpenPositions();
-			reportResults(p);
+			try {
+				executeSimulation(createEngines(p));
+				//			liquidateOpenPositions();
+			} finally {
+				reportResults(p);
+			}
 		});
 	}
 
@@ -229,6 +237,7 @@ public abstract class MarketSimulator<C extends Configuration<C, A>, A extends A
 	}
 
 	protected void reportResults(Parameters parameters) {
+		super.reportResults(parameters);
 		for (AccountManager account : accounts()) {
 			reportResults(account, parameters);
 		}
@@ -254,7 +263,7 @@ public abstract class MarketSimulator<C extends Configuration<C, A>, A extends A
 	public final void backfillHistory() {
 		TreeSet<String> allSymbols = new TreeSet<>();
 		configuration.accounts().forEach(a -> allSymbols.addAll(a.symbolPairs().keySet()));
-		allSymbols.addAll(new CandleRepository(configure().database()).getKnownSymbols());
+		allSymbols.addAll(new DatabaseCandleRepository(configure().database()).getKnownSymbols());
 		backfillHistory(allSymbols);
 	}
 
@@ -270,7 +279,7 @@ public abstract class MarketSimulator<C extends Configuration<C, A>, A extends A
 	}
 
 	protected void backfillHistory(Exchange<?, A> exchange, Collection<String> symbols) {
-		CandleRepository candleRepository = new CandleRepository(configure().database());
+		DatabaseCandleRepository candleRepository = new DatabaseCandleRepository(configure().database());
 		final Instant start = simulation.backfillFrom().toInstant(ZoneOffset.UTC);
 		final Instant end = simulation.backfillTo().toInstant(ZoneOffset.UTC);
 		CandleHistoryBackfill backfill = new CandleHistoryBackfill(candleRepository);
